@@ -1,6 +1,7 @@
 import numpy as np
 
 
+
 class BeliefBase:
 
     def __init__(self):
@@ -13,7 +14,7 @@ class BeliefBase:
         string += "\n".join((str(rule) for rule in self.rules))
         return string
 
-    def tell(self, p,t=np.inf):
+    def tell(self,p, rank=1,t=np.inf):
         prop = p.split()
         if len(prop) <= 2:
             if len(prop) == 2:
@@ -22,10 +23,10 @@ class BeliefBase:
             else:
                 state = True
                 proposition = prop[0]
-            newBelief = BeliefFact(proposition,state,t)
+            newBelief = BeliefFact(proposition,state,rank=rank,t=t)
             self.facts.append(newBelief)
         else:
-            newBelief = BeliefRule(prop)
+            newBelief = BeliefRule(prop,rank=rank,t=t)
             self.rules.append(newBelief)
 
     def ask(self):
@@ -35,13 +36,14 @@ class BeliefBase:
 
 class BeliefFact:
 
-    def __init__(self,name,state,t=np.inf):
+    def __init__(self,name,state,rank=1,t=np.inf):
         self.t = t
         self.name = name
         self.state = state
+        self.rank = rank
 
     def __str__(self):
-        return self.name + " " + str(self.state)
+        return self.name + " " + str(self.state) + " , Rank: " + str(self.rank)
     
     def getTime(self):
         return self.t
@@ -57,16 +59,18 @@ class BeliefFact:
 
 class BeliefRule:
 
-    def __init__(self,rule,t=np.inf):
+    def __init__(self,rule,rank=1,t=np.inf):
         self.t = t
         self.rule = rule
+        self.rank = rank
         self.splitRule()
+        self.makeCNF()
 
     def __str__(self):
-        string = str(len(self.rule)) + " "
+        string = ""
         for part in self.rule:
             string += str(part) + " "
-        return string
+        return string + ", Rank: " + str(self.rank)
 
     def splitRule(self):
         new_rules = []
@@ -81,10 +85,14 @@ class BeliefRule:
                 new_rules.append(p)
         self.rule = new_rules
 
+    def makeCNF(self):
+        
+
 
 KB = BeliefBase()
-KB.tell("p")
-KB.tell("not q")
+KB.tell("p", rank = 2)
+KB.tell("not q", rank = 2)
+KB.tell("p and q", rank = 1)
 KB.tell("(s and t) and r")
 KB.tell("( s and t ) and r")
 KB.tell("s implies t")
