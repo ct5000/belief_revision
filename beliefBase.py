@@ -9,6 +9,7 @@ class BeliefBase:
         self.facts = [] 
         self.rules = []
 
+
     def __str__(self):
         string = "Content: \n"
         string += "\n".join((str(fact) for fact in self.facts)) + "\n"
@@ -21,22 +22,55 @@ class BeliefBase:
     def tell(self,p, rank=1,t=np.inf):
         prop = p.split()
         if len(prop) <= 2:
-            if len(prop) == 2:
-                state = False
-                proposition = prop[1]
-            else:
-                state = True
-                proposition = prop[0]
-            newBelief = BeliefFact(proposition,state,rank=rank,t=t)
-            self.facts.append(newBelief)
+            self.addFact(prop,rank,t)
         else:
             newBelief = BeliefRule(prop,rank=rank,t=t)
             
             if "and" in newBelief.getRule():
                 self.splitRule(newBelief)
             else:
-                self.rules.append(newBelief)
-            
+                if not newBelief in self.rules:
+                    belief_sym = newBelief.getSymbols()
+                    idx = []
+                    for fact in self.facts:
+                        for i in range(len(belief_sym)):
+                            if i not in idx and fact.getName() in belief_sym[i]:
+                                if fact.getState() and "not" in belief_sym[i]:
+                                    idx.append(i)
+                                elif not fact.getState() and not "not" in belief_sym[i]:
+                                    idx.append(i)
+                    if len(belief_sym) - len(idx) == 0:
+                        pass
+                    elif len(belief_sym) - len(idx) == 1:
+                        new_syms = []
+                        for i in range(0,len(belief_sym)):
+                            if i not in idx:
+                                new_syms = belief_sym[i]
+                        self.addFact(new_syms,rank=rank,t=t)
+                    else:
+                        new_syms = []
+                        for i in range(0,len(belief_sym)):
+                            if i not in idx:
+                                new_syms.append(belief_sym[i])
+                        p = new_syms[0]
+                        for i in range(1,len(new_syms)):
+                            p.append("or")
+                            p += new_syms[i]
+                        newBelief = BeliefRule(p,rank=rank,t=t)
+                        self.rules.append(newBelief)
+
+
+    def addFact(self,prop,rank,t):
+        if len(prop) == 2:
+            state = False
+            proposition = prop[1]
+        else:
+            state = True
+            proposition = prop[0]
+        newBelief = BeliefFact(proposition,state,rank=rank,t=t)
+        if newBelief not in self.facts:
+            self.facts.append(newBelief)
+
     '''
     Splits a rule up such that it comes in CNF-form
     '''
@@ -67,30 +101,19 @@ class BeliefBase:
             self.splitRule(rule1)
         else:
             if len(rule1.getRule()) > 2:
-                self.rules.append(rule1)
+                if not rule1 in self.rules:
+                    self.rules.append(rule1)
             else:
-                if len(rule1.getRule()) == 2:
-                    state = False
-                    proposition = rule1.getRule()[1]
-                else:
-                    state = True
-                    proposition = rule1.getRule()[0]
-                newBelief = BeliefFact(proposition,state,rank=ruleInst.rank,t = ruleInst.t)
-                self.facts.append(newBelief)
+                self.addFact(rule1.getRule(),rank=ruleInst.rank,t=ruleInst.t)
         if "and" in rule2.getRule():
             self.splitRule(rule2)
         else:
             if len(rule2.getRule()) > 2:
-                self.rules.append(rule2)
+                if not rule2 in self.rules:
+                    self.rules.append(rule2)
             else:
-                if len(rule2.getRule()) == 2:
-                    state = False
-                    proposition = rule2.getRule()[1]
-                else:
-                    state = True
-                    proposition = rule2.getRule()[0]
-                newBelief = BeliefFact(proposition,state,rank=ruleInst.rank,t = ruleInst.t)
-                self.facts.append(newBelief)
+                self.addFact(rule2.getRule(),rank=ruleInst.rank,t=ruleInst.t)
+                
 
     def ask(self):
         return False
@@ -110,6 +133,9 @@ class BeliefFact:
 
     def __str__(self):
         return self.name + " " + str(self.state) + " , Rank: " + str(self.rank)
+
+    def __eq__(self,other):
+        return self.name == other.getName() and self.state == other.getState()
     
     def getTime(self):
         return self.t
@@ -144,7 +170,26 @@ class BeliefRule:
         return string + ", Rank: " + str(self.rank)
 
     def __eq__(self,other):
-        pass
+        other_symbols = other.getSymbols()
+        self_symbols = self.getSymbols()
+        for sym in other_symbols:
+            if not sym in self_symbols:
+                return False
+            
+        return True
+        
+        
+
+    def getSymbols(self):
+        symbols = []
+        for i in range(len(self.rule)):
+            if self.rule[i] not in OPERATORS and self.rule[i] not in symbols:
+                sym_ins = []
+                if i > 0 and self.rule[i-1] == "not":
+                    sym_ins.append("not")
+                sym_ins.append(self.rule[i])
+                symbols.append(sym_ins)
+        return symbols
 
 
 
@@ -165,7 +210,6 @@ class BeliefRule:
                 self.rule[i] = self.rule[i][:-1]
                 self.rule.insert(i+1,")")
                 i -= 1
-
             i += 1
             
         '''
@@ -436,12 +480,23 @@ KB.tell("s implies t")
 #KB.tell("(t and s) or (p and q and r)")
 #KB.tell("(p and q and w and t and v) or (r and s and z and abc and gh)")
 #KB.tell("(john and bent) or (pip and sul)")
-#KB.tell("(a or c) and (b and c)")
+
 #KB.tell("(a or b)")
 #KB.tell("john or pip")
 #KB.tell("(john implies pip) or (bob and claus)")
-KB.tell("(not A or (C or E)) and ((not C or not E) or A)")
-print(KB)
+#KB.tell("(not A or (C or E)) and ((not C or not E) or A)")
+#KB.tell("a and b")
+#KB.tell("(not p) equal s")
+#KB.tell("r implies p")
+#KB.tell("r implies s")
+#KB.tell("r")
+#KB.tell("(r implies p) and (r implies s)")
+KB.tell("a")
+KB.tell("not a")
+KB.tell("b")
+KB.tell("not a or not b")
+KB.tell("(not a or c) and (not b and c)")
 
+print(KB)
 
 
