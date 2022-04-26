@@ -8,6 +8,7 @@ class BeliefBase:
     def __init__(self):
         self.facts = [] 
         self.rules = []
+        self.symbols = []
 
 
     def __str__(self):
@@ -25,39 +26,12 @@ class BeliefBase:
             self.addFact(prop,rank,t)
         else:
             newBelief = BeliefRule(prop,rank=rank,t=t)
-            
             if "and" in newBelief.getRule():
                 self.splitRule(newBelief)
             else:
                 if not newBelief in self.rules:
-                    belief_sym = newBelief.getSymbols()
-                    idx = []
-                    for fact in self.facts:
-                        for i in range(len(belief_sym)):
-                            if i not in idx and fact.getName() in belief_sym[i]:
-                                if fact.getState() and "not" in belief_sym[i]:
-                                    idx.append(i)
-                                elif not fact.getState() and not "not" in belief_sym[i]:
-                                    idx.append(i)
-                    if len(belief_sym) - len(idx) == 0:
-                        pass
-                    elif len(belief_sym) - len(idx) == 1:
-                        new_syms = []
-                        for i in range(0,len(belief_sym)):
-                            if i not in idx:
-                                new_syms = belief_sym[i]
-                        self.addFact(new_syms,rank=rank,t=t)
-                    else:
-                        new_syms = []
-                        for i in range(0,len(belief_sym)):
-                            if i not in idx:
-                                new_syms.append(belief_sym[i])
-                        p = new_syms[0]
-                        for i in range(1,len(new_syms)):
-                            p.append("or")
-                            p += new_syms[i]
-                        newBelief = BeliefRule(p,rank=rank,t=t)
-                        self.rules.append(newBelief)
+                    self.addBelief(newBelief,rank=rank,t=t)
+                
 
 
     def addFact(self,prop,rank,t):
@@ -69,7 +43,51 @@ class BeliefBase:
             proposition = prop[0]
         newBelief = BeliefFact(proposition,state,rank=rank,t=t)
         if newBelief not in self.facts:
+            if proposition not in self.symbols:
+                self.symbols.append(proposition)
             self.facts.append(newBelief)
+
+
+    def addBelief(self, newBelief, rank,t):
+        
+        belief_sym = newBelief.getSymbols()
+        idx = []
+        for fact in self.facts:
+            for i in range(len(belief_sym)):
+                if i not in idx and fact.getName() in belief_sym[i]:
+                    if fact.getState() and "not" in belief_sym[i]:
+                        idx.append(i)
+                    elif not fact.getState() and not "not" in belief_sym[i]:
+                        idx.append(i)
+        if len(belief_sym) - len(idx) == 0:
+            pass
+        elif len(belief_sym) - len(idx) == 1:
+            new_syms = []
+            for i in range(0,len(belief_sym)):
+                if i not in idx:
+                    new_syms = belief_sym[i]
+            self.addFact(new_syms,rank=rank,t=t)
+        else:
+            new_syms = []
+            for i in range(0,len(belief_sym)):
+                if i not in idx:
+                    new_syms.append(belief_sym[i])
+            p = new_syms[0]
+
+            if len(new_syms[0]) > 1 and new_syms[0][1] not in self.symbols:
+                self.symbols.append(new_syms[1][0])
+            elif len(new_syms[0]) == 1 and new_syms[0][0] not in self.symbols:
+                self.symbols.append(new_syms[0][0])
+            
+            for i in range(1,len(new_syms)):
+                p.append("or")
+                p += new_syms[i]
+                if len(new_syms[i]) > 1 and new_syms[i][1] not in self.symbols:
+                    self.symbols.append(new_syms[i][1])
+                elif len(new_syms[i]) == 1 and new_syms[i][0] not in self.symbols:
+                    self.symbols.append(new_syms[i][0])
+            newBelief = BeliefRule(p,rank=rank,t=t)
+            self.rules.append(newBelief)
 
     '''
     Splits a rule up such that it comes in CNF-form
@@ -77,7 +95,6 @@ class BeliefBase:
     def splitRule(self,ruleInst):
         and_idx = 0
         rule = ruleInst.getRule()
-
         for i in range(1,len(rule) - 1):
             if rule[i] == "and":
                 #equal_right = False
@@ -102,7 +119,7 @@ class BeliefBase:
         else:
             if len(rule1.getRule()) > 2:
                 if not rule1 in self.rules:
-                    self.rules.append(rule1)
+                    self.addBelief(rule1, rank = ruleInst.rank, t= ruleInst.t)
             else:
                 self.addFact(rule1.getRule(),rank=ruleInst.rank,t=ruleInst.t)
         if "and" in rule2.getRule():
@@ -110,14 +127,76 @@ class BeliefBase:
         else:
             if len(rule2.getRule()) > 2:
                 if not rule2 in self.rules:
-                    self.rules.append(rule2)
+                    self.addBelief(rule2, rank = ruleInst.rank, t= ruleInst.t)
             else:
                 self.addFact(rule2.getRule(),rank=ruleInst.rank,t=ruleInst.t)
-                
+
 
     def ask(self):
+        rules = []
+        for rule in self.rules:
+            rules.append(rule.getRule())
+        for fact in self.facts:
+            if not fact.getState():
+                rules.append(["not ", fact.getName()])
+            else:
+                rules.append(fact.getName())
+        symbols = self.symbols.copy()
+        print(self.DPLL(rules,symbols))
+
+
         return False
 
+
+    def findPure(self,rules, symbols):
+        pureSymbols = []
+        for sym in symbols:
+            #notString = "not " + sym
+            nots = 0
+            trues = 0
+            for rule in rules:
+                for i in range(len(rule)):
+                    if sym in rule[i] and i > 0 and rule[i-1] == "not":
+                        nots += 1
+                    elif sym in rule[i] and i > 0 and rule[i-1] != "not":
+                        trues += 1
+            if not (nots >= 1 and trues >= 1):
+                pureSymbols.append(sym)
+        return pureSymbols
+
+    def findUC(self,rules):
+        for j in range(len(rules)):
+            if len(rules[j]) == 1:
+                notString = "not " + rules[j]
+                for i in range(len(rules)):
+                    if notString in rules[i]:
+                        orNotString = " or " + notString
+                        notOrString = notString + " or "
+                        rules[i] = rules[i].replace(orNotString, "")
+                        rules[i] = rules[i].replace(notOrString, "")
+                        rules[i] = rules[i].replace(notString, "")
+                    if rules[j] in rules[i]:
+                        rules[i] = rules[j]
+        return rules
+
+    def DPLL(self,rules, symbols):
+        #print(rules)
+        pureSymbols = self.findPure(rules,symbols)
+        if len(pureSymbols) > 0:
+            for sym in pureSymbols:
+                for j in range(len(rules)):
+                    if sym in rules[j]:
+                        rules[j] = sym
+            for sym in pureSymbols:
+                symbols.remove(sym)
+            return self.DPLL(rules, symbols)
+        self.findUC(rules)
+        if symbols == []:
+            return 0
+        else:
+            rules.append(symbols[0])
+            symbols.remove(symbols[0])
+            return self.DPLL(rules, symbols)
 
 
 class BeliefFact:
@@ -491,12 +570,21 @@ KB.tell("s implies t")
 #KB.tell("r implies s")
 #KB.tell("r")
 #KB.tell("(r implies p) and (r implies s)")
-KB.tell("a")
-KB.tell("not a")
-KB.tell("b")
-KB.tell("not a or not b")
-KB.tell("(not a or c) and (not b and c)")
+#KB.tell("a")
+#KB.tell("not a")
+#KB.tell("b")
+#KB.tell("not a or not b or c or d")
+#KB.tell("(not a or c) and (not b and c)")
+#KB.tell("a equal b")
+#KB.tell("a implies (c and d)")
+
+KB.tell("a or b")
+KB.tell("a or not c")
+KB.tell("not b or not c")
+KB.ask()
 
 print(KB)
+
+
 
 
