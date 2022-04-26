@@ -1,3 +1,4 @@
+import time
 import numpy as np
 
 OPERATORS = ["not", "and", "or", "implies", "equal", "(", ")"]
@@ -30,7 +31,7 @@ class BeliefBase:
             self.facts.append(newBelief)
         else:
             newBelief = BeliefRule(prop,rank=rank,t=t)
-            print(newBelief.getRule())
+            
             if "and" in newBelief.getRule():
                 self.splitRule(newBelief)
             else:
@@ -154,6 +155,20 @@ class BeliefRule:
     Split the rule such the parenteses is not seen as a part of a proposition
     '''
     def splitRule(self):
+        i = 0
+        while len(self.rule) > i:
+            if self.rule[i][0] == "(" and len(self.rule[i]) > 1:
+                self.rule[i] = self.rule[i][1:]
+                self.rule.insert(i, "(")
+                #i -= 1
+            elif self.rule[i][-1] == ")" and len(self.rule[i]) > 1:
+                self.rule[i] = self.rule[i][:-1]
+                self.rule.insert(i+1,")")
+                i -= 1
+
+            i += 1
+            
+        '''
         new_rules = []
         for p in self.rule:
             if p[0] == "(" and p[-1] == ")":
@@ -169,6 +184,7 @@ class BeliefRule:
             else:
                 new_rules.append(p)
         self.rule = new_rules
+        '''
 
     '''
     Converts the rule to CNF form
@@ -178,6 +194,7 @@ class BeliefRule:
         self.handleImplies()
         self.DeMorgan()
         self.andDistribute()
+
 
     '''
     Converts the equals to the two way implies form
@@ -309,26 +326,32 @@ class BeliefRule:
                     right_side.append(self.rule[i+2])
                 new_array = []
                 j = par_start
-                while j < i:
-                    if self.rule[j] not in OPERATORS:
-                        new_array.append("(")
-                        new_array.append(self.rule[j])
-                        new_array.append("or")
-                        new_array += right_side
-                        new_array.append(")")
-                        new_array.append("and")
-                    elif self.rule[j] == "not":
-                        new_array.append("(")
-                        new_array += self.rule[j:j+2]
-                        new_array.append("or")
-                        new_array += right_side
-                        new_array.append(")")
-                        new_array.append("and")
+                if "and" in self.rule[j:i]:
+                    while j < i:
+                        if self.rule[j] not in OPERATORS:
+                            new_array.append("(")
+                            new_array.append(self.rule[j])
+                            new_array.append("or")
+                            new_array += right_side
+                            new_array.append(")")
+                            new_array.append("and")
+                        elif self.rule[j] == "not":
+                            new_array.append("(")
+                            new_array += self.rule[j:j+2]
+                            new_array.append("or")
+                            new_array += right_side
+                            new_array.append(")")
+                            new_array.append("and")
+                            j += 1
                         j += 1
-                    j += 1
-                self.rule = self.rule[0:par_start] + new_array[0:-1] + self.rule[i+3+skip_val:]
+                    #print("Before",self.rule)
+                    self.rule = self.rule[0:par_start] + new_array[0:-1] + self.rule[i+3+skip_val:]
+                else:
+                    self.rule = self.rule[0:par_start] + self.rule[par_start+1:i+skip_val] + self.rule[i+1+skip_val:]
                 #i += skip_val
                 #i -= skip_val
+                #print(i)
+                #print("After",self.rule)
                 i = 0
             # This checks wheter a or comes before a parenteses and finds the right side that needs to be distributed
             # The left side is not checks since it is dealt with in the first if-statement
@@ -345,24 +368,31 @@ class BeliefRule:
                     left_side.append(self.rule[i-1])
                 new_array = []
                 j = i + 2
-                while j < par_end:
-                    if self.rule[j] not in OPERATORS:
-                        new_array.append("(")
-                        new_array += left_side
-                        new_array.append("or")
-                        new_array.append(self.rule[j])
-                        new_array.append(")")
-                        new_array.append("and")
-                    if self.rule[j] == "not":
-                        new_array.append("(")
-                        new_array += left_side
-                        new_array.append("or")
-                        new_array += self.rule[j:j+2]
-                        new_array.append(")")
-                        new_array.append("and")
+                if "and" in self.rule[j:par_end]:
+                    while j < par_end:
+                        if self.rule[j] not in OPERATORS:
+                            new_array.append("(")
+                            new_array += left_side
+                            new_array.append("or")
+                            new_array.append(self.rule[j])
+                            new_array.append(")")
+                            new_array.append("and")
+                        if self.rule[j] == "not":
+                            new_array.append("(")
+                            new_array += left_side
+                            new_array.append("or")
+                            new_array += self.rule[j:j+2]
+                            new_array.append(")")
+                            new_array.append("and")
+                            j += 1
                         j += 1
-                    j += 1
-                self.rule = self.rule[0:i-(1 + skip_val)] + new_array[0:-1] + self.rule[par_end+1:]
+                    #print("Before", self.rule)
+                    self.rule = self.rule[0:i-(1 + skip_val)] + new_array[0:-1] + self.rule[par_end+1:]
+                else:
+                    self.rule = self.rule[0:i+skip_val] + self.rule[j:par_end] + self.rule[par_end+1:]
+                #print("i",i)
+                #print("par_end",par_end)
+                #print("After",self.rule)
                 #i += skip_val
                 i = 0
             i += 1
@@ -371,6 +401,7 @@ class BeliefRule:
     Checks if there are outer parentesis that incloses the full rule and if so removes them
     '''
     def checkOuterPar(self):
+        #print(self.rule)
         if self.rule[0] == "(":
             i = 1
             left_par = 1
@@ -409,6 +440,7 @@ KB.tell("s implies t")
 #KB.tell("(a or b)")
 #KB.tell("john or pip")
 #KB.tell("(john implies pip) or (bob and claus)")
+KB.tell("(not A or (C or E)) and ((not C or not E) or A)")
 print(KB)
 
 
