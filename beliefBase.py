@@ -136,17 +136,22 @@ class BeliefBase:
         symbols = []
         for rule in self.rules:
             rules.append(rule.getRule())
-        for clause in clauses:
-            rules.append(clause)
-            for part in clause:
-                if part not in OPERATORS and part not in symbols:
-                    symbols.append(part)
         model = []
+        model_sym = []
         for fact in self.facts:
             if not fact.getState():
                 model.append(["not", fact.getName()])
+                model_sym.append(fact.getName())
             else:
                 model.append(fact.getName())
+                model_sym.append(fact.getName())
+        for clause in clauses:
+            rules.append(clause)
+            for part in clause:
+                if part not in OPERATORS and part not in symbols and part not in model_sym:
+                    symbols.append(part)
+        
+        print(model)
         return self.DPLL(rules,symbols,model)
 
 
@@ -175,39 +180,51 @@ class BeliefBase:
         truth_val = []
         unit_rule = []
         for rule in rules:
+            #print(rule)
             num_p = 0
             contradictions = 0
             sym = ''
             truth_p = False
             for i in range(len(rule)):
                 if rule[i] not in OPERATORS:
+                    #print("Cur rule", rule[i])
                     num_p +=1
+                    in_contradiction = False
                     for fact in model:
+                        
                         if "not" in fact and fact[1] == rule[i] and not (i > 0 and rule[i-1] == "not"):
                             contradictions += 1
+                            in_contradiction = True
+                            continue
                         elif fact[0] == rule[i] and i > 0 and rule[i-1] == "not":
                             contradictions += 1
+                            in_contradiction = True
+                            continue
+                    if not in_contradiction:
+                        if i > 0 and rule[i-1] == "not":
+                            truth_p = False
+                            sym = rule[i]
                         else:
-                            if i > 0 and rule[i-1] == "not":
-                                truth_p = False
-                                sym = rule[i]
-                            else:
-                                truth_p = True
-                                sym = rule[i]          
+                            #print("Alternate way",fact)
+                            truth_p = True
+                            sym = rule[i] 
+                    #print("num_p", num_p, "contradiction",contradictions)         
             if num_p - contradictions == 1:
+                #print("Contraditions", contradictions, "num_p", num_p)
+                #print("Adds UC", sym)
                 unit_clause.append(sym)
                 truth_val.append(truth_p)
                 unit_rule.append(rule)
         return unit_clause, truth_val, unit_rule
 
-    def DPLL(self,rules, symbols,model):
+    def DPLL(self,rules_ins, symbols,model):
+        rules = rules_ins.copy()
         undecided = False
-        '''
-        print("new round")
-        print("symbols",symbols)
+        decided_idx = []
+        print("new run")
+        print("rules",rules)
+        print("symbols", symbols)
         print("model", model)
-        print("rules", rules)
-        '''
         for rule in rules:
             #print("rule",rule)
             num_p = 0
@@ -227,12 +244,16 @@ class BeliefBase:
                             cur_undecided = False
             if cur_undecided:
                 undecided = True
+            else: 
+                decided_idx.append(rule)
             if contradictions == num_p:
                 return False
         if not undecided:
             return True
+        for decided in decided_idx:
+            rules.remove(decided)
         pureSymbols, truth_val = self.findPure(rules,symbols)
-        #print("pure", pureSymbols)
+        print("pure", pureSymbols)
         if len(pureSymbols) > 0:
             '''
             for sym in pureSymbols:
@@ -252,7 +273,8 @@ class BeliefBase:
                     model.append(pureSymbols[i])
             return self.DPLL(rules, symbols,model)
         unit_clauses, truth_val,unit_rule = self.findUC(rules,model)
-        #print("UC", unit_clauses)
+        print("UC", unit_clauses)
+        print(truth_val)
         if len(unit_clauses) > 0:
             # Redo remove part
             '''
@@ -275,6 +297,7 @@ class BeliefBase:
             p_sym = symbols[0]
             model_true.append(p_sym)
             model_false.append(["not",p_sym])
+            print("P_sym",p_sym)
             return self.DPLL(rules, symbols[1:],model_true) or self.DPLL(rules,symbols[1:],model_false)
 
 
@@ -630,12 +653,15 @@ KB.tell("s implies t")
 #KB.tell("a implies (c and d)")
 
 #KB.tell("c")
+KB.tell("e")
+KB.tell("not b")
+
 print(KB.ask([["not", "a", "or", "c", "or", "e"], ["not", "c", "or", "a"],["not", "e", "or", "a"],["not","e","or","d"],["not","b","or","not","f","or","c"],
             ["not","e","or","c"],["not","c", "or","f"],["not","c","or","b"]]))
 #KB.tell("a or not c")
 #KB.tell("not b or not c")
 
-print(KB.ask([["a", "or", "b"],["not","a","or","not","b"],["a","or","not","b"],["not","a","or","b"]]))
+#print(KB.ask([["a", "or", "b"],["not","a","or","not","b"],["a","or","not","b"],["not","a","or","b"]]))
 print(KB)
 
 
