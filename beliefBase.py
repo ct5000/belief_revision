@@ -49,7 +49,6 @@ class BeliefBase:
 
 
     def addBelief(self, newBelief, rank,t):
-        
         belief_sym = newBelief.getSymbols()
         idx = []
         for fact in self.facts:
@@ -132,71 +131,151 @@ class BeliefBase:
                 self.addFact(rule2.getRule(),rank=ruleInst.rank,t=ruleInst.t)
 
 
-    def ask(self):
+    def ask(self, clauses):
         rules = []
+        symbols = []
         for rule in self.rules:
             rules.append(rule.getRule())
+        for clause in clauses:
+            rules.append(clause)
+            for part in clause:
+                if part not in OPERATORS and part not in symbols:
+                    symbols.append(part)
+        model = []
         for fact in self.facts:
             if not fact.getState():
-                rules.append(["not ", fact.getName()])
+                model.append(["not", fact.getName()])
             else:
-                rules.append(fact.getName())
-        symbols = self.symbols.copy()
-        print(self.DPLL(rules,symbols))
-
-
-        return False
+                model.append(fact.getName())
+        return self.DPLL(rules,symbols,model)
 
 
     def findPure(self,rules, symbols):
         pureSymbols = []
+        truth_val = []
         for sym in symbols:
-            #notString = "not " + sym
             nots = 0
             trues = 0
             for rule in rules:
                 for i in range(len(rule)):
                     if sym in rule[i] and i > 0 and rule[i-1] == "not":
                         nots += 1
-                    elif sym in rule[i] and i > 0 and rule[i-1] != "not":
+                    elif sym in rule[i] and ((i > 0 and rule[i-1] != "not") or i == 0):
                         trues += 1
             if not (nots >= 1 and trues >= 1):
                 pureSymbols.append(sym)
-        return pureSymbols
+                if nots:
+                    truth_val.append(False)
+                else:
+                    truth_val.append(True)
+        return pureSymbols, truth_val
 
-    def findUC(self,rules):
-        for j in range(len(rules)):
-            if len(rules[j]) == 1:
-                notString = "not " + rules[j]
-                for i in range(len(rules)):
-                    if notString in rules[i]:
-                        orNotString = " or " + notString
-                        notOrString = notString + " or "
-                        rules[i] = rules[i].replace(orNotString, "")
-                        rules[i] = rules[i].replace(notOrString, "")
-                        rules[i] = rules[i].replace(notString, "")
-                    if rules[j] in rules[i]:
-                        rules[i] = rules[j]
-        return rules
+    def findUC(self,rules,model):
+        unit_clause = []
+        truth_val = []
+        unit_rule = []
+        for rule in rules:
+            num_p = 0
+            contradictions = 0
+            sym = ''
+            truth_p = False
+            for i in range(len(rule)):
+                if rule[i] not in OPERATORS:
+                    num_p +=1
+                    for fact in model:
+                        if "not" in fact and fact[1] == rule[i] and not (i > 0 and rule[i-1] == "not"):
+                            contradictions += 1
+                        elif fact[0] == rule[i] and i > 0 and rule[i-1] == "not":
+                            contradictions += 1
+                        else:
+                            if i > 0 and rule[i-1] == "not":
+                                truth_p = False
+                                sym = rule[i]
+                            else:
+                                truth_p = True
+                                sym = rule[i]          
+            if num_p - contradictions == 1:
+                unit_clause.append(sym)
+                truth_val.append(truth_p)
+                unit_rule.append(rule)
+        return unit_clause, truth_val, unit_rule
 
-    def DPLL(self,rules, symbols):
-        #print(rules)
-        pureSymbols = self.findPure(rules,symbols)
+    def DPLL(self,rules, symbols,model):
+        undecided = False
+        '''
+        print("new round")
+        print("symbols",symbols)
+        print("model", model)
+        print("rules", rules)
+        '''
+        for rule in rules:
+            #print("rule",rule)
+            num_p = 0
+            contradictions = 0
+            cur_undecided = True
+            for i in range(len(rule)):
+                if not rule[i] in OPERATORS:
+                    num_p += 1
+                    for fact in model:
+                        if "not" in fact and fact[1] == rule[i] and not (i > 0 and rule[i-1] == "not"):
+                            contradictions += 1
+                        elif fact[0] == rule[i] and i > 0 and rule[i-1] == "not":
+                            contradictions += 1
+                        elif "not" in fact and fact[1] == rule[i] and i > 0 and rule[i-1] == "not":
+                            cur_undecided = False
+                        elif fact[0] == rule[i]:
+                            cur_undecided = False
+            if cur_undecided:
+                undecided = True
+            if contradictions == num_p:
+                return False
+        if not undecided:
+            return True
+        pureSymbols, truth_val = self.findPure(rules,symbols)
+        #print("pure", pureSymbols)
         if len(pureSymbols) > 0:
+            '''
             for sym in pureSymbols:
-                for j in range(len(rules)):
+                j = 0
+                while j < len(rules):
                     if sym in rules[j]:
-                        rules[j] = sym
-            for sym in pureSymbols:
-                symbols.remove(sym)
-            return self.DPLL(rules, symbols)
-        self.findUC(rules)
+                        rules.pop(j)
+                        j -= 1
+                    j += 1
+            '''
+            for i in range(len(pureSymbols)):
+                if pureSymbols[i] in symbols:
+                    symbols.remove(pureSymbols[i])
+                if not truth_val[i]:
+                    model.append(["not", pureSymbols[i]])
+                else:
+                    model.append(pureSymbols[i])
+            return self.DPLL(rules, symbols,model)
+        unit_clauses, truth_val,unit_rule = self.findUC(rules,model)
+        #print("UC", unit_clauses)
+        if len(unit_clauses) > 0:
+            # Redo remove part
+            '''
+            for rule in unit_rule:
+                rules.remove(rule)
+            '''
+            for i in range(len(unit_clauses)):
+                if unit_clauses[i] in symbols:
+                    symbols.remove(unit_clauses[i])
+                if not truth_val[i]:
+                    model.append(["not", unit_clauses[i]])
+                else:
+                    model.append(unit_clauses[i])
+            return self.DPLL(rules, symbols,model)
         if symbols == []:
             return 0
         else:
-            rules.append(symbols[0])
-            symbols.remove(symbols[0])
-            return self.DPLL(rules, symbols)
+            model_false = model.copy()
+            model_true = model.copy()
+            p_sym = symbols[0]
+            model_true.append(p_sym)
+            model_false.append(["not",p_sym])
+            return self.DPLL(rules, symbols[1:],model_true) or self.DPLL(rules,symbols[1:],model_false)
 
 
 class BeliefFact:
@@ -291,23 +370,6 @@ class BeliefRule:
                 i -= 1
             i += 1
             
-        '''
-        new_rules = []
-        for p in self.rule:
-            if p[0] == "(" and p[-1] == ")":
-                new_rules.append("(")
-                new_rules.append(p[1:-1])
-                new_rules.append(")")
-            elif p[0] == "(" and len(p) > 1:
-                new_rules.append("(")
-                new_rules.append(p[1:])
-            elif p[-1] == ")" and len(p) > 1:
-                new_rules.append(p[:-1])
-                new_rules.append(")")
-            else:
-                new_rules.append(p)
-        self.rule = new_rules
-        '''
 
     '''
     Converts the rule to CNF form
@@ -467,14 +529,9 @@ class BeliefRule:
                             new_array.append("and")
                             j += 1
                         j += 1
-                    #print("Before",self.rule)
                     self.rule = self.rule[0:par_start] + new_array[0:-1] + self.rule[i+3+skip_val:]
                 else:
                     self.rule = self.rule[0:par_start] + self.rule[par_start+1:i+skip_val] + self.rule[i+1+skip_val:]
-                #i += skip_val
-                #i -= skip_val
-                #print(i)
-                #print("After",self.rule)
                 i = 0
             # This checks wheter a or comes before a parenteses and finds the right side that needs to be distributed
             # The left side is not checks since it is dealt with in the first if-statement
@@ -509,14 +566,9 @@ class BeliefRule:
                             new_array.append("and")
                             j += 1
                         j += 1
-                    #print("Before", self.rule)
                     self.rule = self.rule[0:i-(1 + skip_val)] + new_array[0:-1] + self.rule[par_end+1:]
                 else:
                     self.rule = self.rule[0:i+skip_val] + self.rule[j:par_end] + self.rule[par_end+1:]
-                #print("i",i)
-                #print("par_end",par_end)
-                #print("After",self.rule)
-                #i += skip_val
                 i = 0
             i += 1
 
@@ -524,7 +576,6 @@ class BeliefRule:
     Checks if there are outer parentesis that incloses the full rule and if so removes them
     '''
     def checkOuterPar(self):
-        #print(self.rule)
         if self.rule[0] == "(":
             i = 1
             left_par = 1
@@ -578,11 +629,13 @@ KB.tell("s implies t")
 #KB.tell("a equal b")
 #KB.tell("a implies (c and d)")
 
-KB.tell("a or b")
-KB.tell("a or not c")
-KB.tell("not b or not c")
-KB.ask()
+#KB.tell("c")
+print(KB.ask([["not", "a", "or", "c", "or", "e"], ["not", "c", "or", "a"],["not", "e", "or", "a"],["not","e","or","d"],["not","b","or","not","f","or","c"],
+            ["not","e","or","c"],["not","c", "or","f"],["not","c","or","b"]]))
+#KB.tell("a or not c")
+#KB.tell("not b or not c")
 
+print(KB.ask([["a", "or", "b"],["not","a","or","not","b"],["a","or","not","b"],["not","a","or","b"]]))
 print(KB)
 
 
