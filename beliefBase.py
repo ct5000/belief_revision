@@ -130,8 +130,11 @@ class BeliefBase:
             else:
                 self.addFact(rule2.getRule(),rank=ruleInst.rank,t=ruleInst.t)
 
-
-    def ask(self, clauses):
+    '''
+    Takes and checks if added clauses is compliant with the current rules and facts. 
+    Should be developed to taking beliefs instead of correctly formatted lists
+    '''
+    def ask(self, clauses = []):
         rules = []
         symbols = []
         for rule in self.rules:
