@@ -24,9 +24,10 @@ class BeliefBase:
         prop = p.split()
         if len(prop) <= 2:
             new_fact = self.addFact(prop,rank,t)
-            check = self.ask([new_fact], self.facts)
+            #check = self.ask([new_fact], self.facts)
             #print("check", check)
-            self.facts.append(new_fact)
+            if new_fact not in self.facts:
+                self.facts.append(new_fact)
         else:
             newBelief = BeliefRule(prop,rank=rank,t=t)
             #print("new rule", newBelief)
@@ -55,11 +56,11 @@ class BeliefBase:
             state = True
             proposition = prop[0]
         newBelief = BeliefFact(proposition,state,rank=rank,t=t)
-        if newBelief not in self.facts:
-            if proposition not in self.symbols:
-                self.symbols.append(proposition)
+        #if newBelief not in self.facts:
+            #if proposition not in self.symbols:
+        self.symbols.append(proposition)
             #self.facts.append(newBelief)
-            return newBelief
+        return newBelief
 
 
     def addBelief(self, newBelief, rank,t):
@@ -107,7 +108,6 @@ class BeliefBase:
     Splits a rule up such that it comes in CNF-form
     '''
     def splitRule(self,ruleInst):
-        print("start split")
         return_rules = []
         return_facts = []
         and_idx = 0
@@ -127,18 +127,14 @@ class BeliefBase:
                 if right_par == left_par:
                     and_idx = i
         and_inner = 0
-        print(and_idx)
         if and_idx == 0:
             and_idx = rule.index("and")
             if rule[0] == "(":
                 and_inner = 1
-        print(rule)
         left_part = rule[0+and_inner:and_idx]
         right_part = rule[and_idx+1:]
         if and_inner and rule[-1] == ")":
             right_part = right_part[:-1]
-        print("left", left_part)
-        print("right", right_part)
         rule1 = BeliefRule(left_part,rank = ruleInst.rank, t = ruleInst.t)
         rule2 = BeliefRule(right_part,rank = ruleInst.rank, t = ruleInst.t)
         # Checks if the rules are in CNF-form. If not it calls splitRule again on the new rule
@@ -162,7 +158,6 @@ class BeliefBase:
                     return_rules += [self.addBelief(rule2, rank = ruleInst.rank, t= ruleInst.t)]
             else:
                 return_facts.append(self.addFact(rule2.getRule(),rank=ruleInst.rank,t=ruleInst.t))
-        print("Split_rules: ", return_rules)
         return return_rules, return_facts
 
     '''
@@ -357,11 +352,32 @@ class BeliefBase:
     '''
     def contract(self,proposition):
         neg_proposition = self.negateProposition(proposition)
-        extended_beliefs = self.rules + neg_proposition
-        conformity = self.ask(extended_beliefs,facts = self.facts)
-        while not conformity:
-            print("Was here")
-            break
+        #extended_beliefs = self.rules + neg_proposition
+        #conformity = self.ask(extended_beliefs,facts = self.facts)
+        facts_keep = []
+        facts_contract = []
+        rules_keep = []
+        rules_contract = []
+        for fact in self.facts:
+            test_facts = facts_keep + [fact]
+            keep = self.ask(neg_proposition,facts=test_facts)
+            if keep:
+                facts_keep.append(fact)
+            else:
+                facts_contract.append(fact)
+        for rule in self.rules:
+            test_rules = rules_keep + [rule] + neg_proposition
+            keep = self.ask(test_rules,facts = facts_keep)
+            if keep:
+                rules_keep.append(rule)
+            else:
+                rules_contract.append(rule)
+        for fact in facts_contract:
+            self.facts.remove(fact)
+        for rule in rules_contract:
+            self.rules.remove(rule)
+
+
 
     def negateProposition(self, proposition):
         combined = ["not", "("]
@@ -380,10 +396,9 @@ class BeliefBase:
             combined.append("and")
         combined.pop()
         combined.append(")")
-        print("combined",combined)
+        #print("combined",combined)
         newBelief = BeliefRule(combined)
         new_proposition = []
-        print(newBelief)
         if "and" in newBelief.getRule():
             new_rules, new_facts = self.splitRule(newBelief)
             for rule in new_rules:
@@ -783,9 +798,13 @@ KB.tell("s implies t")
 #KB.tell("not a equal b")
 
 #print(KB.ask([["a", "or", "b"],["not","a","or","not","b"],["a","or","not","b"],["not","a","or","b"]]))
-KB.tell("a")
-fact = BeliefFact("a",True)
-KB.contract([fact])
+KB.tell("not a")
+KB.tell("not b")
+KB.tell("c")
+belief = BeliefRule(["a", "implies","b"])
+print(belief)
+#fact = BeliefFact("a",True)
+KB.contract([belief])
 
 '''
 belief = BeliefRule(["a", "or", "b"])
