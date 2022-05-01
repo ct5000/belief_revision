@@ -17,6 +17,11 @@ class BeliefBase:
         string += "\n".join((str(rule) for rule in self.rules))
         return string
 
+    def getFacts(self):
+        return self.facts
+
+    def getRules(self):
+        return self.rules
     '''
     Adds a proposition to the belief base in a CNF form. 
     '''
