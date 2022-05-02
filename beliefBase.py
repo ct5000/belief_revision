@@ -1,4 +1,3 @@
-import time
 import numpy as np
 
 OPERATORS = ["not", "and", "or", "implies", "equal", "(", ")"]
@@ -52,14 +51,14 @@ class BeliefBase:
         if len(prop) <= 2:
             new_fact = self.addFact(prop,rank,t)
     
-            check = self.ask([new_fact], self.facts)
+            check = self.ask([new_fact] + self.rules, self.facts)
             if check:
                 if new_fact not in self.facts:
                     self.facts.append(new_fact)
             else:
                 new_fact_neg = self.negateProposition([new_fact])
                 self.contract(new_fact_neg)
-                check = self.ask([new_fact], self.facts)
+                check = self.ask([new_fact] + self.rules, self.facts)
                 if check:
                     if new_fact not in self.facts:
                         self.facts.append(new_fact)
@@ -67,7 +66,7 @@ class BeliefBase:
             newBelief = BeliefRule(prop,rank=rank,t=t)
             if "and" in newBelief.getRule():
                 beliefs, facts = self.splitRule(newBelief)
-                combined = beliefs + facts
+                combined = beliefs + facts + self.rules
                 check = self.ask(combined, self.facts)
                 if check:
                     for belief in beliefs:
@@ -79,7 +78,7 @@ class BeliefBase:
                     new_beliefs_neg = self.negateProposition(beliefs)
                     new_neg = new_facts_neg + new_beliefs_neg
                     self.contract(new_neg)
-                    check = self.ask(combined)
+                    check = self.ask(combined + self.rules)
                     
                     if check:
                         for belief in beliefs:
@@ -87,14 +86,14 @@ class BeliefBase:
                         for fact in facts:
                             self.facts.append(fact)
             else:
-                check = self.ask([newBelief], self.facts)
+                check = self.ask([newBelief]+ self.rules, self.facts)
                 if check:
                     if not newBelief in self.rules:
                         self.rules.append(newBelief)
                 else:
                     new_belief_neg = self.negateProposition([newBelief])
                     self.contract(new_belief_neg)
-                    check = self.ask([newBelief], self.facts)
+                    check = self.ask([newBelief] + self.rules, self.facts)
                     if check:
                         if not newBelief in self.rules:
                             self.rules.append(newBelief)
@@ -399,7 +398,6 @@ class BeliefBase:
     '''
     def contract(self,proposition,rank = 1):
         neg_proposition = self.negateProposition(proposition,rank)
-        print(neg_proposition[0])
         facts_keep = []
         facts_contract = []
         rules_keep = []
@@ -459,7 +457,6 @@ class BeliefBase:
                 combined.append("and")
             combined.pop()
             combined.append(")")
-            print(rank)
             newBelief = BeliefRule(combined,rank=rank)
             new_proposition = []
             if "and" in newBelief.getRule():
@@ -873,7 +870,6 @@ class BeliefRule:
     def checkOuterPar(self):
         not_outer = False
         while not not_outer:
-            #if self.rule[0] == "(":
             i = 1
             left_par = 1
             right_par = 0
@@ -887,3 +883,5 @@ class BeliefRule:
                 self.rule = self.rule[1:-1]
             else:
                 not_outer = True
+
+
