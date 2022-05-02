@@ -19,5 +19,6 @@ This will start the program in the commandline. Here it gives 5 options:
 ### Valid inputs
 For a proposition to be valid it must consists of propositions/atomic sentences connected by operators: (and, or, not, implies, equal). If it is not one of the operators it is considered as an atomic sentence. It is not allowed to have two operators in a row, except when it is not just after one of the other operators. Two atomic sentences should be sorounded by parenteses. 
 
+For the rank it is only allowed to input integers. 
 
 
