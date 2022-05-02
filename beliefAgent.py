@@ -13,7 +13,9 @@ class BeliefAgent:
     def addProposition(self):
         print("Write the proposition you want to add")
         proposition = input()
-        self.KB.tell(proposition)
+        print("How certain are you (1-5)?")
+        rank = int(input())
+        self.KB.tell(proposition, rank=rank)
         print("Proposition has been added")
 
     def askValid(self):
@@ -42,8 +44,10 @@ class BeliefAgent:
     def retractInformation(self):
         print("Write proposition you want to retract")
         proposition_input = input()
+        print("How certain are you (1-5)?")
+        rank = int(input())
         proposition_split = proposition_input.split()
-        proposition = [beliefBase.BeliefRule(proposition_split)]
+        proposition = [beliefBase.BeliefRule(proposition_split,rank=rank)]
         if "and" in proposition[0].getRule():
             rules, facts = self.KB.splitRule(proposition[0])
             proposition = []
@@ -51,31 +55,12 @@ class BeliefAgent:
                 proposition.append(rule)
             for fact in facts:
                 if fact.getState():
-                    new_rule = beliefBase.BeliefRule(fact.getName())
+                    new_rule = beliefBase.BeliefRule(fact.getName(),rank=rank)
                 else:
-                    new_rule = beliefBase.BeliefRule("not " + fact.getName())
+                    new_rule = beliefBase.BeliefRule("not " + fact.getName(),rank=rank)
                 proposition.append(new_rule)
 
         self.KB.contract(proposition)
-
-
-'''
-    def getAction(self,percept):
-        self.KB.tell(self.perceptSentence(percept),self.t)
-        action = self.KB.ask(self.actionQuery())
-        self.KB.tell(self.actionSentence(action),self.t)
-        self.t += 1
-        return action
-
-    def perceptSentence(self,percept):
-        pass
-
-    def actionQuery(self):
-        pass
-
-    def actionSentence(self,action):
-        pass
-'''
 
 
 

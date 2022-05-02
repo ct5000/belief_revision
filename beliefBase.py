@@ -27,30 +27,124 @@ class BeliefBase:
     '''
     def tell(self,p, rank=1,t=np.inf):
         prop = p.split()
+        print(prop)
+        #print(prop)
         if len(prop) <= 2:
+            print("here")
             new_fact = self.addFact(prop,rank,t)
-            #check = self.ask([new_fact], self.facts)
+            check = self.ask([new_fact], self.facts)
+            print(check)
             #print("check", check)
-            if new_fact not in self.facts:
-                self.facts.append(new_fact)
+            if check:
+                if new_fact not in self.facts:
+                    self.facts.append(new_fact)
+            else:
+                new_fact_neg = self.negateProposition([new_fact])
+                self.contract(new_fact_neg)
+                check = self.ask([new_fact], self.facts)
+                if check:
+                    if new_fact not in self.facts:
+                        self.facts.append(new_fact)
         else:
             newBelief = BeliefRule(prop,rank=rank,t=t)
+            #print(newBelief)
+            #print(newBelief)
             #print("new rule", newBelief)
             if "and" in newBelief.getRule():
                 beliefs, facts = self.splitRule(newBelief)
-                check = self.ask(beliefs, self.facts)
+                combined = beliefs + facts
+                check = self.ask(combined, self.facts)
+                if check:
                 #print("check", check)
-                for belief in beliefs:
-                    self.rules.append(belief)
+                    for belief in beliefs:
+                        self.rules.append(belief)
+                    for fact in facts:
+                        self.facts.append(fact)
+                else:
+                    new_facts_neg = self.negateProposition(facts)
+                    new_beliefs_neg = self.negateProposition(beliefs)
+                    #print(new_facts_neg)
+                    #print(new_beliefs_neg)
+                    new_neg = new_facts_neg + new_beliefs_neg
+                    self.contract(new_neg)
+                    check = self.ask(combined)
+                    
+                    if check:
+                        for belief in beliefs:
+                            self.rules.append(belief)
+                        for fact in facts:
+                            self.facts.append(fact)
             else:
-                if not newBelief in self.rules:
-                    #print("here")
+                check = self.ask([newBelief], self.facts)
+                #print("check",check)
+                if check:
+                    if not newBelief in self.rules:
+                        #print("here")
+                        #check = self.ask([newBelief], self.facts)
+                        #print("check 2",check)
+                        #belief = self.addBelief(newBelief,rank=rank,t=t)
+                        self.rules.append(newBelief)
+                else:
+                    new_belief_neg = self.negateProposition([newBelief])
+                    self.contract(new_belief_neg)
                     check = self.ask([newBelief], self.facts)
-                    #print("check 2",check)
-                    belief = self.addBelief(newBelief,rank=rank,t=t)
-                    self.rules.append(belief)
+                    if check:
+                        if not newBelief in self.rules:
+                            self.rules.append(newBelief)
 
+        self.updateFacts(rank,t)
+
+    def updateFacts(self, rank, t):
+        add_rule = []
+        for rule in self.rules:
+            #print(rule)
+            belief_sym = rule.getSymbols()
+            idx = []
+            for fact in self.facts:
+                for i in range(len(belief_sym)):
+                    if i not in idx and fact.getName() in belief_sym[i]:
+                        if fact.getState() and "not" in belief_sym[i]:
+                            idx.append(i)
+                        elif not fact.getState() and not "not" in belief_sym[i]:
+                            idx.append(i)
+            if len(belief_sym) - len(idx) == 0:
+                pass
+            elif len(belief_sym) - len(idx) == 1:
+                new_syms = []
+                for i in range(0,len(belief_sym)):
+                    if i not in idx:
+                        new_syms = belief_sym[i]
+                new_fact = self.addFact(new_syms,rank=rank,t=t)
+                if new_fact not in self.facts:
+                    self.facts.append(new_fact)
+            else:
+                new_syms = []
+                for i in range(0,len(belief_sym)):
+                    if i not in idx:
+                        new_syms.append(belief_sym[i])
+                p = new_syms[0]
+
+                if len(new_syms[0]) > 1 and new_syms[0][1] not in self.symbols:
+                    self.symbols.append(new_syms[1][0])
+                elif len(new_syms[0]) == 1 and new_syms[0][0] not in self.symbols:
+                    self.symbols.append(new_syms[0][0])
                 
+                for i in range(1,len(new_syms)):
+                    p.append("or")
+                    p += new_syms[i]
+                    if len(new_syms[i]) > 1 and new_syms[i][1] not in self.symbols:
+                        self.symbols.append(new_syms[i][1])
+                    elif len(new_syms[i]) == 1 and new_syms[i][0] not in self.symbols:
+                        self.symbols.append(new_syms[i][0])
+                newBelief = BeliefRule(p,rank=rank,t=t)
+                #self.rules.append(newBelief)
+                add_rule.append(newBelief)
+                #return newBelief
+        for rule in add_rule:
+            if rule not in self.rules:
+                self.rules.append(rule)
+                
+
 
 
     def addFact(self,prop,rank,t):
@@ -67,8 +161,9 @@ class BeliefBase:
             #self.facts.append(newBelief)
         return newBelief
 
-
+    '''
     def addBelief(self, newBelief, rank,t):
+        print("new belief", newBelief)
         belief_sym = newBelief.getSymbols()
         idx = []
         for fact in self.facts:
@@ -79,6 +174,7 @@ class BeliefBase:
                     elif not fact.getState() and not "not" in belief_sym[i]:
                         idx.append(i)
         if len(belief_sym) - len(idx) == 0:
+            print("here")
             pass
         elif len(belief_sym) - len(idx) == 1:
             new_syms = []
@@ -108,6 +204,7 @@ class BeliefBase:
             newBelief = BeliefRule(p,rank=rank,t=t)
             #self.rules.append(newBelief)
             return newBelief
+        '''
 
     '''
     Splits a rule up such that it comes in CNF-form
@@ -150,7 +247,8 @@ class BeliefBase:
         else:
             if len(rule1.getRule()) > 2:
                 if not rule1 in self.rules:
-                    return_rules += [self.addBelief(rule1, rank = ruleInst.rank, t= ruleInst.t)]
+                    return_rules.append(rule1)
+                    #return_rules += [self.addBelief(rule1, rank = ruleInst.rank, t= ruleInst.t)]
             else:
                 return_facts.append(self.addFact(rule1.getRule(),rank=ruleInst.rank,t=ruleInst.t))
         if "and" in rule2.getRule():
@@ -160,7 +258,9 @@ class BeliefBase:
         else:
             if len(rule2.getRule()) > 2:
                 if not rule2 in self.rules:
-                    return_rules += [self.addBelief(rule2, rank = ruleInst.rank, t= ruleInst.t)]
+                    return_rules.append(rule2)
+                    #print(self.addBelief(rule2, rank = ruleInst.rank, t= ruleInst.t))
+                    #return_rules += [self.addBelief(rule2, rank = ruleInst.rank, t= ruleInst.t)]
             else:
                 return_facts.append(self.addFact(rule2.getRule(),rank=ruleInst.rank,t=ruleInst.t))
         return return_rules, return_facts
@@ -172,8 +272,10 @@ class BeliefBase:
     def ask(self, clauses = [], facts = []):
         rules = []
         symbols = []
+        '''
         for rule in self.rules:
             rules.append(rule.getRule())
+        '''
         model = []
         model_sym = []
         for fact in facts:
@@ -268,11 +370,13 @@ class BeliefBase:
         rules = rules_ins.copy()
         undecided = False
         decided_idx = []
-        #print("new run")
-        #print("rules",rules)
-        #print("symbols", symbols)
-        #print("model", model)
-        #print(rules)
+        '''
+        print("new run")
+        print("rules",rules)
+        print("symbols", symbols)
+        print("model", model)
+        print(rules)
+        '''
         for rule in rules:
             #print("rule",rule)
             num_p = 0
@@ -355,67 +459,106 @@ class BeliefBase:
     '''
     Input to the function is a list of beliefs
     '''
-    def contract(self,proposition):
+    def contract(self,proposition,rank = 1):
+        #print("BEGIN CONTRACT")
         neg_proposition = self.negateProposition(proposition)
-        #extended_beliefs = self.rules + neg_proposition
-        #conformity = self.ask(extended_beliefs,facts = self.facts)
+        '''
+        print("props", len(proposition))
+        for prop in proposition:
+            print(prop)
+        print("neg props", len(neg_proposition))
+        
+        for prop in neg_proposition:
+            print(prop)
+        print("end")
+        '''
         facts_keep = []
         facts_contract = []
         rules_keep = []
         rules_contract = []
+        lower_rank = False
         for fact in self.facts:
             test_facts = facts_keep + [fact]
             keep = self.ask(neg_proposition,facts=test_facts)
+            #print(fact, keep)
+            #print(fact)
+            #print("keep", keep)
+            '''
+            if not keep and rank >= fact.getRank():
+                facts_contract.append(fact)
+            else:
+                facts_keep.append(fact)
+            '''
             if keep:
                 facts_keep.append(fact)
             else:
-                facts_contract.append(fact)
-        for rule in self.rules:
-            test_rules = rules_keep + [rule] + neg_proposition
-            keep = self.ask(test_rules,facts = facts_keep)
-            if keep:
-                rules_keep.append(rule)
-            else:
-                rules_contract.append(rule)
-        for fact in facts_contract:
-            self.facts.remove(fact)
-        for rule in rules_contract:
-            self.rules.remove(rule)
+                if rank >= fact.getRank():
+                    facts_contract.append(fact)
+                else:
+                    lower_rank = True
+                    break
+        if not lower_rank: 
+            for rule in self.rules:
+                test_rules = rules_keep + [rule] + neg_proposition
+                keep = self.ask(test_rules,facts = facts_keep)
+                if keep:
+                    rules_keep.append(rule)
+                else:
+                    if rank >= rule.getRank():
+                        rules_contract.append(rule)
+                    else:
+                        lower_rank = True
+                        break
+        if not lower_rank:
+            for fact in facts_contract:
+                self.facts.remove(fact)
+            for rule in rules_contract:
+                self.rules.remove(rule)
 
 
 
     def negateProposition(self, proposition):
-        combined = ["not", "("]
-        for prop in proposition:
-            combined.append("(")
-            if isinstance(prop, BeliefFact):
-                part = prop.getName()
-                if not prop.getState():
-                    combined += ["not",part]
-                else:
-                    combined.append(part)
-            elif isinstance(prop, BeliefRule):
-                for part in prop.getRule():
-                    combined.append(part)
+        if proposition:
+            combined = ["not", "("]
+            for prop in proposition:
+                combined.append("(")
+                if isinstance(prop, BeliefFact):
+                    part = prop.getName()
+                    if not prop.getState():
+                        combined += ["not",part]
+                    else:
+                        combined.append(part)
+                elif isinstance(prop, BeliefRule):
+                    for part in prop.getRule():
+                        combined.append(part)
+                combined.append(")")
+                combined.append("and")
+            combined.pop()
             combined.append(")")
-            combined.append("and")
-        combined.pop()
-        combined.append(")")
-        #print("combined",combined)
-        newBelief = BeliefRule(combined)
-        new_proposition = []
-        if "and" in newBelief.getRule():
-            new_rules, new_facts = self.splitRule(newBelief)
-            for rule in new_rules:
-                new_proposition.append(rule)
-            for fact in new_facts:
-                if fact.getState():
-                    new_proposition.append(BeliefRule(fact.getName()))
-                else:
-                    new_proposition.append(BeliefRule(["not", fact.getName()]))
+            #print("combined",combined)
+            newBelief = BeliefRule(combined)
+            #print("newbelief",newBelief)
+            new_proposition = []
+            if "and" in newBelief.getRule():
+                new_rules, new_facts = self.splitRule(newBelief)
+                '''
+                print("new_rules", len(new_rules))
+                for rule in new_rules:
+                    print(rule)
+                '''
+                for rule in new_rules:
+                    if rule not in new_proposition:
+                        new_proposition.append(rule)
+                for fact in new_facts:
+                    if fact.getState():
+                        new_proposition.append(BeliefRule(fact.getName()))
+                    else:
+                        new_proposition.append(BeliefRule(["not", fact.getName()]))
+            else:
+                new_proposition.append(newBelief)
+            return new_proposition
         else:
-            new_proposition.append(newBelief)
-        return new_proposition
+            return []
 
 
 class BeliefFact:
@@ -444,6 +587,9 @@ class BeliefFact:
 
     def getName(self):
         return self.name
+
+    def getRank(self):
+        return self.rank
     
 
 
@@ -458,7 +604,9 @@ class BeliefRule:
         self.rule = rule
         self.rank = rank
         self.splitRule()
+        #print("start",self.rule)
         self.makeCNF()
+        #print("after CNF", self.rule)
         self.checkOuterPar()
 
     def __str__(self):
@@ -500,6 +648,9 @@ class BeliefRule:
     def getRule(self):
         return self.rule
 
+    def getRank(self):
+        return self.rank
+
     '''
     Split the rule such the parenteses is not seen as a part of a proposition
     '''
@@ -524,7 +675,12 @@ class BeliefRule:
         self.handleEqual()
         self.handleImplies()
         self.DeMorgan()
+        #print("After Morgen",self.rule)
+        self.handleInconsistent()
+        self.handleParAround()
+        #print("Aften Incons", self.rule)
         self.andDistribute()
+        #print("After and",self.rule)
 
 
     '''
@@ -635,6 +791,35 @@ class BeliefRule:
                 del self.rule[i]
                 i -= 1
             i += 1
+    
+    def handleInconsistent(self):
+        i = 1
+        while i < len(self.rule) - 1:
+            if self.rule[i] == "and" and i > 1:
+                if self.rule[i-1] == self.rule[i+2] and self.rule[i+1] == "not" and self.rule[i-2] != "not":
+                    self.rule = self.rule[0:i-2] + self.rule[i+4:]
+                    i = 0
+                elif self.rule[i-1] == self.rule[i+1] and self.rule[i-2] == "not":
+                    self.rule = self.rule[0:i-3] + self.rule[i+3:]
+                    i = 0
+            i += 1
+        
+    def handleParAround(self):
+        i = 1
+        while i < len(self.rule) - 1:
+            if self.rule[i] not in OPERATORS:
+                if (self.rule[i-1]=="(" and self.rule[i+1] ==")"):
+                    self.rule = self.rule[:i-1] + [self.rule[i]] + self.rule[i+2:]
+                    i = 0
+                elif (self.rule[i-2]=="(" and self.rule[i+1] ==")"):
+                    self.rule = self.rule[:i-2] + self.rule[i-1:i+1] + self.rule[i+2:]
+                    i = 0
+
+
+
+            i += 1
+        
+
     '''
     Used to distribute the ands out such that we do not have or'ed and-statements
     '''
@@ -644,6 +829,9 @@ class BeliefRule:
             # This part checks wheter an or comes after an parenteses. 
             # It isolates both the right side that has to be distributed
             if self.rule[i] == ")" and self.rule[i+1] == "or":
+                #print(self.rule)
+                #print("rule self", self.rule)
+                #print(i)
                 par_start = i - 1
                 while self.rule[par_start] != "(":
                     par_start -= 1
@@ -663,8 +851,10 @@ class BeliefRule:
                     skip_val = par_end - (i + 2)
                 else:
                     right_side.append(self.rule[i+2])
+                #print("right_side", right_side)
                 new_array = []
                 j = par_start
+                #print("self.rule[j:i]", self.rule[j:i])
                 if "and" in self.rule[j:i]:
                     while j < i:
                         if self.rule[j] not in OPERATORS:
@@ -683,13 +873,21 @@ class BeliefRule:
                             new_array.append("and")
                             j += 1
                         j += 1
+                    #print("new_array", new_array)
                     self.rule = self.rule[0:par_start] + new_array[0:-1] + self.rule[i+3+skip_val:]
                 else:
-                    self.rule = self.rule[0:par_start] + self.rule[par_start+1:i+skip_val] + self.rule[i+1+skip_val:]
+                    '''
+                    print("part 1", self.rule[0:par_start])
+                    print("part 2", self.rule[par_start+1:i+skip_val+1])
+                    print("part 3", self.rule[i+1+skip_val:-1])
+                    print("skip_val",skip_val)
+                    '''
+                    self.rule = self.rule[0:par_start] + self.rule[par_start+1:i+skip_val+1] + self.rule[i+skip_val:-1]
                 i = 0
             # This checks wheter a or comes before a parenteses and finds the right side that needs to be distributed
             # The left side is not checks since it is dealt with in the first if-statement
             elif self.rule[i] == "or" and self.rule[i+1] == "(":
+                #print("rule self", self.rule)
                 par_end = i + 2
                 while self.rule[par_end] != ")":
                     par_end += 1
@@ -701,6 +899,7 @@ class BeliefRule:
                 else:
                     left_side.append(self.rule[i-1])
                 new_array = []
+                #print("left_side",left_side)
                 j = i + 2
                 if "and" in self.rule[j:par_end]:
                     while j < par_end:
@@ -750,78 +949,5 @@ class BeliefRule:
 
 
                             
-                            
-
-               
-                    
-    
-
-KB = BeliefBase()
-'''
-KB.tell("p", rank = 2)
-KB.tell("not q", rank = 2)
-KB.tell("p and q", rank = 1)
-KB.tell("(s and t) and r")
-KB.tell("( s and t ) and r")
-KB.tell("s implies t")
-'''
-#KB.tell("r equal (p or s)")
-#KB.tell("(t and s) or (p and q and r)")
-#KB.tell("(p and q and w and t and v) or (r and s and z and abc and gh)")
-#KB.tell("(john and bent) or (pip and sul)")
-
-#KB.tell("(a or b) and (c or d)")
-#KB.tell("john or pip")
-#KB.tell("(john implies pip) or (bob and claus)")
-#KB.tell("(not A or (C or E)) and ((not C or not E) or A)")
-#KB.tell("a and b")
-#KB.tell("(not p) equal s")
-#KB.tell("r equal p")
-#KB.tell("r implies s")
-#KB.tell("r")
-#KB.tell("(r implies p) and (r implies s)")
-#KB.tell("a")
-#KB.tell("not a")
-#KB.tell("not b or c")
-#KB.tell("b")
-#KB.tell("not a or not b or c or d")
-#KB.tell("(not a or c) and (not b and c)")
-#KB.tell("a equal b")
-#KB.tell("a implies (c and d)")
-
-#KB.tell("c")
-#KB.tell("e")
-#KB.tell("not b")
-
-#print(KB.ask([["not", "a", "or", "c", "or", "e"], ["not", "c", "or", "a"],["not", "e", "or", "a"],["not","e","or","d"],["not","b","or","not","f","or","c"],
-           # ["not","e","or","c"],["not","c", "or","f"],["not","c","or","b"]]))
-#KB.tell("a or not c")
-#KB.tell("not b or not c")
-#KB.tell("p or s")
-#KB.tell("r or not s")
-#KB.tell("a equal b")
-#KB.tell("not a equal b")
-
-#print(KB.ask([["a", "or", "b"],["not","a","or","not","b"],["a","or","not","b"],["not","a","or","b"]]))
-KB.tell("not a")
-KB.tell("not b")
-KB.tell("c")
-belief = BeliefRule(["a", "implies","b"])
-print(belief)
-#fact = BeliefFact("a",True)
-KB.contract([belief])
-
-'''
-belief = BeliefRule(["a", "or", "b"])
-belief2 = BeliefFact("a",False)
-print("here")
-new_beliefs = KB.negateProposition([belief,belief2])
-print(new_beliefs)
-for new_belief in new_beliefs:
-    print(new_belief)
-'''
-print(KB)
-
-
-
-
+          
+ 
