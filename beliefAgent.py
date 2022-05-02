@@ -3,13 +3,22 @@ import beliefBase
 
 class BeliefAgent:
 
+    '''
+    Initialises the BeliefAgent to time 0 and with a new belief base
+    '''
     def __init__(self):
         self.KB = beliefBase.BeliefBase()
         self.t = 0
 
+    '''
+    Prints the belief base
+    '''
     def printBase(self):
         print(self.KB)
-        
+    
+    '''
+    Adds a proposition to the belief base with a given rank. Both are obtained by prompting the user
+    '''
     def addProposition(self):
         print("Write the proposition you want to add")
         proposition = input()
@@ -18,6 +27,9 @@ class BeliefAgent:
         self.KB.tell(proposition, rank=rank)
         print("Proposition has been added")
 
+    '''
+    Gets a proposition to check validity in the current belief base. Gets the proposition to check from a prompt to the user
+    '''
     def askValid(self):
         print("Write proposition you want to get validity of")
         proposition_input = input()
@@ -41,6 +53,10 @@ class BeliefAgent:
         else:
             print("The proposition is not valid in the belief base")
 
+    '''
+    Asks for information to retract from the belief base and how sure the user is that it should be removed. 
+    Both are obtained by prompting the user
+    '''
     def retractInformation(self):
         print("Write proposition you want to retract")
         proposition_input = input()
