@@ -60,7 +60,7 @@ class BeliefAgent:
                     new_rule = beliefBase.BeliefRule("not " + fact.getName(),rank=rank)
                 proposition.append(new_rule)
 
-        self.KB.contract(proposition)
+        self.KB.contract(proposition,rank=rank)
 
 
 
